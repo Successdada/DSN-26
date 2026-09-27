@@ -1,0 +1,2301 @@
+﻿================================================================================
+CELL 1 [markdown]
+================================================================================
+# BigMart Sales Mini Project  
+
+![](https://scontent.foua5-1.fna.fbcdn.net/v/t1.6435-9/76903806_2618951018128214_1634804792129748992_n.jpg?_nc_cat=108&ccb=1-7&_nc_sid=e3f864&_nc_ohc=CPwn9wYkDW8AX_eBK-n&_nc_ht=scontent.foua5-1.fna&oh=00_AfDW7IIqs6bTHrU5f5qtrRqy4YOqX4oJujApEt-dnQrIhQ&oe=64F469A5)
+
+================================================================================
+CELL 2 [markdown]
+================================================================================
+# 1) Problem Statement  
+
+
+The Data Scientists at BigMart have collected 2013 sales data for 1559 products across 10 stores in different cities. Also, certain attributes of each product and store have been defined. The aim of this data science project is to build a predictive model and find out the sales of each product at a particular store.  
+
+- **Business Goal :** Using this model, BigMart will try to understand the properties of products and stores which play a key role in increasing sales.
+
+- **Analysis:**
+    * **Type of problem:** Supervised Learning problem
+    * **Target feature :** Item_Outlet_Sales
+
+We will handle this problem in a structured way following the table of content given below:
+1) Problem Statement  
+2) Hypothesis Generation  
+3) Loading Packages and Data  
+4) Data Structure and Content  
+5) Exploratory Data Analysis  
+6) Univariate Analysis  
+7) Bivariate Analysis  
+8) Missing Value Treatment  
+9) Feature Engineering  
+10) Encoding Categorical Variables  
+11) Label Encoding  
+12) One Hot Encoding  
+13) PreProcessing Data  
+14) Modeling  
+15) Linear Regression  
+16) Regularized Linear Regression  
+17) RandomForest  
+18) XGBoost  
+19) Predictions & Summary  
+20) Saving The Final Model
+
+================================================================================
+CELL 3 [markdown]
+================================================================================
+# 2) Hypothesis Generation
+
+There are four (04) hypothesis that we would want to test after the EDA:
+
+- **On basis of item:**
+    1. **Item visibility in store:** The location of product in a store will impact sales. Ones which are right at entrance will catch the eye of customer first rather than the ones in back.
+    2. **Product Frequency:** More frequent products will have high Sales.
+
+
+- **On basis of store:**
+
+    1. **City type:** Stores located in urban cities should have higher sales because of the higher income levels of people there.
+    2. **Store capacity:** Stores which are very big in size should have higher sales as they act like one-stop-shops and people would prefer getting everything from one place.
+
+================================================================================
+CELL 4 [markdown]
+================================================================================
+# 3) Loading Packages and Data
+
+================================================================================
+CELL 5 [code]
+================================================================================
+import numpy as np # linear algebra
+import pandas as pd # data processing
+import math
+from matplotlib import pyplot as plt
+import seaborn as sns
+
+from sklearn.impute import KNNImputer
+from sklearn.preprocessing import LabelEncoder, PolynomialFeatures, StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import LinearRegression, ElasticNet, Lasso, Ridge
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split, cross_val_score, KFold
+from sklearn.metrics import mean_absolute_error , mean_squared_error , r2_score
+from xgboost import XGBRegressor
+import optuna
+
+# Ignore warnings ;)
+import warnings
+warnings.simplefilter("ignore")
+
+import pickle
+
+# set seed for reproductibility
+np.random.seed(0)
+
+================================================================================
+CELL 6 [code]
+================================================================================
+# loading the data 
+train = pd.read_csv("/kaggle/input/bigmart-sales/Train.csv")
+test  = pd.read_csv( "/kaggle/input/bigmart-sales/Test.csv")
+
+================================================================================
+CELL 7 [markdown]
+================================================================================
+# 4) Data Structure and Content
+
+================================================================================
+CELL 8 [code]
+================================================================================
+# head function will tell the top records in the data set
+train.head()   # python shows the top 5 records by default
+--- OUTPUT [text/html] ---
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Item_Identifier</th>
+      <th>Item_Weight</th>
+      <th>Item_Fat_Content</th>
+      <th>Item_Visibility</th>
+      <th>Item_Type</th>
+      <th>Item_MRP</th>
+      <th>Outlet_Identifier</th>
+      <th>Outlet_Establishment_Year</th>
+      <th>Outlet_Size</th>
+      <th>Outlet_Location_Type</th>
+      <th>Outlet_Type</th>
+      <th>Item_Outlet_Sales</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>FDA15</td>
+      <td>9.30</td>
+      <td>Low Fat</td>
+      <td>0.016047</td>
+      <td>Dairy</td>
+      <td>249.8092</td>
+      <td>OUT049</td>
+      <td>1999</td>
+      <td>Medium</td>
+      <td>Tier 1</td>
+      <td>Supermarket Type1</td>
+      <td>3735.1380</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>DRC01</td>
+      <td>5.92</td>
+      <td>Regular</td>
+      <td>0.019278</td>
+      <td>Soft Drinks</td>
+      <td>48.2692</td>
+      <td>OUT018</td>
+      <td>2009</td>
+      <td>Medium</td>
+      <td>Tier 3</td>
+      <td>Supermarket Type2</td>
+      <td>443.4228</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>FDN15</td>
+      <td>17.50</td>
+      <td>Low Fat</td>
+      <td>0.016760</td>
+      <td>Meat</td>
+      <td>141.6180</td>
+      <td>OUT049</td>
+      <td>1999</td>
+      <td>Medium</td>
+      <td>Tier 1</td>
+      <td>Supermarket Type1</td>
+      <td>2097.2700</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>FDX07</td>
+      <td>19.20</td>
+      <td>Regular</td>
+      <td>0.000000</td>
+      <td>Fruits and Vegetables</td>
+      <td>182.0950</td>
+      <td>OUT010</td>
+      <td>1998</td>
+      <td>NaN</td>
+      <td>Tier 3</td>
+      <td>Grocery Store</td>
+      <td>732.3800</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>NCD19</td>
+      <td>8.93</td>
+      <td>Low Fat</td>
+      <td>0.000000</td>
+      <td>Household</td>
+      <td>53.8614</td>
+      <td>OUT013</td>
+      <td>1987</td>
+      <td>High</td>
+      <td>Tier 3</td>
+      <td>Supermarket Type1</td>
+      <td>994.7052</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+--- OUTPUT [text/plain] ---
+  Item_Identifier  Item_Weight Item_Fat_Content  Item_Visibility  \
+0           FDA15         9.30          Low Fat         0.016047   
+1           DRC01         5.92          Regular         0.019278   
+2           FDN15        17.50          Low Fat         0.016760   
+3           FDX07        19.20          Regular         0.000000   
+4           NCD19         8.93          Low Fat         0.000000   
+
+               Item_Type  Item_MRP Outlet_Identifier  \
+0                  Dairy  249.8092            OUT049   
+1            Soft Drinks   48.2692            OUT018   
+2                   Meat  141.6180            OUT049   
+3  Fruits and Vegetables  182.0950            OUT010   
+4              Household   53.8614            OUT013   
+
+   Outlet_Establishment_Year Outlet_Size Outlet_Location_Type  \
+0                       1999      Medium               Tier 1   
+1                       2009      Medium               Tier 3   
+2                       1999      Medium               Tier 1   
+3                       1998         NaN               Tier 3   
+4                       1987        High               Tier 3   
+
+         Outlet_Type  Item_Outlet_Sales  
+0  Supermarket Type1          3735.1380  
+1  Supermarket Type2           443.4228  
+2  Supermarket Type1          2097.2700  
+3      Grocery Store           732.3800  
+4  Supermarket Type1           994.7052  
+
+================================================================================
+CELL 9 [code]
+================================================================================
+train.Item_Type.value_counts()
+--- OUTPUT [text/plain] ---
+Fruits and Vegetables    1232
+Snack Foods              1200
+Household                 910
+Frozen Foods              856
+Dairy                     682
+Canned                    649
+Baking Goods              648
+Health and Hygiene        520
+Soft Drinks               445
+Meat                      425
+Breads                    251
+Hard Drinks               214
+Others                    169
+Starchy Foods             148
+Breakfast                 110
+Seafood                    64
+Name: Item_Type, dtype: int64
+
+================================================================================
+CELL 10 [code]
+================================================================================
+# shape attribute tells us the number of observations and variables we have in the data set.
+train.shape
+--- OUTPUT [text/plain] ---
+(8523, 12)
+
+================================================================================
+CELL 11 [markdown]
+================================================================================
+In our dataset there are **8523 different items** with **12 features**.
+
+================================================================================
+CELL 12 [code]
+================================================================================
+# info() is used to check the Information about the data and the datatypes of each respective attribute
+train.info()
+
+================================================================================
+CELL 13 [markdown]
+================================================================================
+**Features Description:**
+
+* **Numerical features:**
+    - **Item_Weight       :** Weight of the product or item.
+    - **Item_Visibility   :** The % of the total display area of all products in a store allocated to the particular product.
+    - **Item_MRP          :** Maximum Retail Price (list price) of the product
+    - **Outlet_Establishment_Year :** The year in which the store was established.
+    - **Item_Outlet_Sales :** sales of the product in a particular store. This is the target variable to be predicted.
+    
+
+* **Categorical features:**
+    - **Item_Identifier :** Unique product ID (we would want to drop this column later) 
+    - **Item_Fat_Content :** Whether the product is low, fat or not
+    - **Item_Type         :** The category to which the product belongs.
+    - **Outlet_Identifier :** Unique store ID
+    - **Outlet_Size    :** The size of the store in terms of ground area covered.
+    - **Outlet_Location_Type :** The type of city in which the store is located.
+    - **Outlet_Type :** Whether the outlet is just a grocery store or some sort of supermarket.
+
+================================================================================
+CELL 14 [code]
+================================================================================
+# The describe() method help to see data spread for numerical values by default : min, max, mean, percentiles...
+# but we can use the argument include='all' to see the descriptive stats about all types of variables
+train.describe(include='all')
+--- OUTPUT [text/html] ---
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Item_Identifier</th>
+      <th>Item_Weight</th>
+      <th>Item_Fat_Content</th>
+      <th>Item_Visibility</th>
+      <th>Item_Type</th>
+      <th>Item_MRP</th>
+      <th>Outlet_Identifier</th>
+      <th>Outlet_Establishment_Year</th>
+      <th>Outlet_Size</th>
+      <th>Outlet_Location_Type</th>
+      <th>Outlet_Type</th>
+      <th>Item_Outlet_Sales</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>count</th>
+      <td>8523</td>
+      <td>7060.000000</td>
+      <td>8523</td>
+      <td>8523.000000</td>
+      <td>8523</td>
+      <td>8523.000000</td>
+      <td>8523</td>
+      <td>8523.000000</td>
+      <td>6113</td>
+      <td>8523</td>
+      <td>8523</td>
+      <td>8523.000000</td>
+    </tr>
+    <tr>
+      <th>unique</th>
+      <td>1559</td>
+      <td>NaN</td>
+      <td>5</td>
+      <td>NaN</td>
+      <td>16</td>
+      <td>NaN</td>
+      <td>10</td>
+      <td>NaN</td>
+      <td>3</td>
+      <td>3</td>
+      <td>4</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>top</th>
+      <td>FDW13</td>
+      <td>NaN</td>
+      <td>Low Fat</td>
+      <td>NaN</td>
+      <td>Fruits and Vegetables</td>
+      <td>NaN</td>
+      <td>OUT027</td>
+      <td>NaN</td>
+      <td>Medium</td>
+      <td>Tier 3</td>
+      <td>Supermarket Type1</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>freq</th>
+      <td>10</td>
+      <td>NaN</td>
+      <td>5089</td>
+      <td>NaN</td>
+      <td>1232</td>
+      <td>NaN</td>
+      <td>935</td>
+      <td>NaN</td>
+      <td>2793</td>
+      <td>3350</td>
+      <td>5577</td>
+      <td>NaN</td>
+    </tr>
+    <tr>
+      <th>mean</th>
+      <td>NaN</td>
+      <td>12.857645</td>
+      <td>NaN</td>
+      <td>0.066132</td>
+      <td>NaN</td>
+      <td>140.992782</td>
+      <td>NaN</td>
+      <td>1997.831867</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>2181.288914</td>
+    </tr>
+    <tr>
+      <th>std</th>
+      <td>NaN</td>
+      <td>4.643456</td>
+      <td>NaN</td>
+      <td>0.051598</td>
+      <td>NaN</td>
+      <td>62.275067</td>
+      <td>NaN</td>
+      <td>8.371760</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>1706.499616</td>
+    </tr>
+    <tr>
+      <th>min</th>
+      <td>NaN</td>
+      <td>4.555000</td>
+      <td>NaN</td>
+      <td>0.000000</td>
+      <td>NaN</td>
+      <td>31.290000</td>
+      <td>NaN</td>
+      <td>1985.000000</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>33.290000</td>
+    </tr>
+    <tr>
+      <th>25%</th>
+      <td>NaN</td>
+      <td>8.773750</td>
+      <td>NaN</td>
+      <td>0.026989</td>
+      <td>NaN</td>
+      <td>93.826500</td>
+      <td>NaN</td>
+      <td>1987.000000</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>834.247400</td>
+    </tr>
+    <tr>
+      <th>50%</th>
+      <td>NaN</td>
+      <td>12.600000</td>
+      <td>NaN</td>
+      <td>0.053931</td>
+      <td>NaN</td>
+      <td>143.012800</td>
+      <td>NaN</td>
+      <td>1999.000000</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>1794.331000</td>
+    </tr>
+    <tr>
+      <th>75%</th>
+      <td>NaN</td>
+      <td>16.850000</td>
+      <td>NaN</td>
+      <td>0.094585</td>
+      <td>NaN</td>
+      <td>185.643700</td>
+      <td>NaN</td>
+      <td>2004.000000</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>3101.296400</td>
+    </tr>
+    <tr>
+      <th>max</th>
+      <td>NaN</td>
+      <td>21.350000</td>
+      <td>NaN</td>
+      <td>0.328391</td>
+      <td>NaN</td>
+      <td>266.888400</td>
+      <td>NaN</td>
+      <td>2009.000000</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>NaN</td>
+      <td>13086.964800</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+--- OUTPUT [text/plain] ---
+       Item_Identifier  Item_Weight Item_Fat_Content  Item_Visibility  \
+count             8523  7060.000000             8523      8523.000000   
+unique            1559          NaN                5              NaN   
+top              FDW13          NaN          Low Fat              NaN   
+freq                10          NaN             5089              NaN   
+mean               NaN    12.857645              NaN         0.066132   
+std                NaN     4.643456              NaN         0.051598   
+min                NaN     4.555000              NaN         0.000000   
+25%                NaN     8.773750              NaN         0.026989   
+50%                NaN    12.600000              NaN         0.053931   
+75%                NaN    16.850000              NaN         0.094585   
+max                NaN    21.350000              NaN         0.328391   
+
+                    Item_Type     Item_MRP Outlet_Identifier  \
+count                    8523  8523.000000              8523   
+unique                     16          NaN                10   
+top     Fruits and Vegetables          NaN            OUT027   
+freq                     1232          NaN               935   
+mean                      NaN   140.992782               NaN   
+std                       NaN    62.275067               NaN   
+min                       NaN    31.290000               NaN   
+25%                       NaN    93.826500               NaN   
+50%                       NaN   143.012800               NaN   
+75%                       NaN   185.643700               NaN   
+max                       NaN   266.888400               NaN   
+
+        Outlet_Establishment_Year Outlet_Size Outlet_Location_Type  \
+count                 8523.000000        6113                 8523   
+unique                        NaN           3                    3   
+top                           NaN      Medium               Tier 3   
+freq                          NaN        2793                 3350   
+mean                  1997.831867         NaN                  NaN   
+std                      8.371760         NaN                  NaN   
+min                   1985.000000         NaN                  NaN   
+25%                   1987.000000         NaN                  NaN   
+50%                   1999.000000         NaN                  NaN   
+75%                   2004.000000         NaN                  NaN   
+max                   2009.000000         NaN                  NaN   
+
+              Outlet_Type  Item_Outlet_Sales  
+count                8523        8523.000000  
+unique                  4                NaN  
+top     Supermarket Type1                NaN  
+freq                 5577                NaN  
+mean                  NaN        2181.288914  
+std                   NaN        1706.499616  
+min                   NaN          33.290000  
+25%                   NaN         834.247400  
+50%                   NaN        1794.331000  
+75%                   NaN        3101.296400  
+max                   NaN       13086.964800  
+
+================================================================================
+CELL 15 [code]
+================================================================================
+# get the number of missing datapoints per column
+train.isnull().sum().sort_values(ascending=False)
+--- OUTPUT [text/plain] ---
+Outlet_Size                  2410
+Item_Weight                  1463
+Item_Identifier                 0
+Item_Fat_Content                0
+Item_Visibility                 0
+Item_Type                       0
+Item_MRP                        0
+Outlet_Identifier               0
+Outlet_Establishment_Year       0
+Outlet_Location_Type            0
+Outlet_Type                     0
+Item_Outlet_Sales               0
+dtype: int64
+
+================================================================================
+CELL 16 [markdown]
+================================================================================
+We can observe that we are having:
+* **2410 missing values in the Outlet_Size feature** which is a categorical feature. 
+* **1463 missing values in the Item_Weight feature**
+
+
+For dealing with missing values, you'll need to use our intuition. Generally to figure out why the values are missing, we can ask ourself:
+> Are these values missing because they weren't recorded or because they does't exist?
+
+- **Doesn't exist   :** then we can keep them as NaN or simply drop them.
+- **Weren't recorded:** then we can do imputation using different techniques. I'll choose between mean and mode imputation.
+
+================================================================================
+CELL 17 [code]
+================================================================================
+# maybe we should consider the 'Outlet_Establishment_Year' column as a categorical column
+#train['Outlet_Establishment_Year'].value_counts()
+#train['Outlet_Establishment_Year'] = train['Outlet_Establishment_Year'].astype(str)
+train.Outlet_Establishment_Year
+--- OUTPUT [text/plain] ---
+0       1999
+1       2009
+2       1999
+3       1998
+4       1987
+        ... 
+8518    1987
+8519    2002
+8520    2004
+8521    2009
+8522    1997
+Name: Outlet_Establishment_Year, Length: 8523, dtype: int64
+
+================================================================================
+CELL 18 [code]
+================================================================================
+train['Outlet_Establishment_Year'].dtype
+--- OUTPUT [text/plain] ---
+dtype('int64')
+
+================================================================================
+CELL 19 [code]
+================================================================================
+train['Outlet_Identifier'].value_counts()
+--- OUTPUT [text/plain] ---
+OUT027    935
+OUT013    932
+OUT049    930
+OUT046    930
+OUT035    930
+OUT045    929
+OUT018    928
+OUT017    926
+OUT010    555
+OUT019    528
+Name: Outlet_Identifier, dtype: int64
+
+================================================================================
+CELL 20 [markdown]
+================================================================================
+**This "Outlet_Identifier" feature can be extremely important for the modelling part** since there are only ten(10) values corresponding exactly to the ten(10) stores in which the data have been collected.
+
+================================================================================
+CELL 21 [code]
+================================================================================
+# Let's take a look at the test dataframe
+test.head()
+--- OUTPUT [text/html] ---
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Item_Identifier</th>
+      <th>Item_Weight</th>
+      <th>Item_Fat_Content</th>
+      <th>Item_Visibility</th>
+      <th>Item_Type</th>
+      <th>Item_MRP</th>
+      <th>Outlet_Identifier</th>
+      <th>Outlet_Establishment_Year</th>
+      <th>Outlet_Size</th>
+      <th>Outlet_Location_Type</th>
+      <th>Outlet_Type</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>FDW58</td>
+      <td>20.750</td>
+      <td>Low Fat</td>
+      <td>0.007565</td>
+      <td>Snack Foods</td>
+      <td>107.8622</td>
+      <td>OUT049</td>
+      <td>1999</td>
+      <td>Medium</td>
+      <td>Tier 1</td>
+      <td>Supermarket Type1</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>FDW14</td>
+      <td>8.300</td>
+      <td>reg</td>
+      <td>0.038428</td>
+      <td>Dairy</td>
+      <td>87.3198</td>
+      <td>OUT017</td>
+      <td>2007</td>
+      <td>NaN</td>
+      <td>Tier 2</td>
+      <td>Supermarket Type1</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>NCN55</td>
+      <td>14.600</td>
+      <td>Low Fat</td>
+      <td>0.099575</td>
+      <td>Others</td>
+      <td>241.7538</td>
+      <td>OUT010</td>
+      <td>1998</td>
+      <td>NaN</td>
+      <td>Tier 3</td>
+      <td>Grocery Store</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>FDQ58</td>
+      <td>7.315</td>
+      <td>Low Fat</td>
+      <td>0.015388</td>
+      <td>Snack Foods</td>
+      <td>155.0340</td>
+      <td>OUT017</td>
+      <td>2007</td>
+      <td>NaN</td>
+      <td>Tier 2</td>
+      <td>Supermarket Type1</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>FDY38</td>
+      <td>NaN</td>
+      <td>Regular</td>
+      <td>0.118599</td>
+      <td>Dairy</td>
+      <td>234.2300</td>
+      <td>OUT027</td>
+      <td>1985</td>
+      <td>Medium</td>
+      <td>Tier 3</td>
+      <td>Supermarket Type3</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+--- OUTPUT [text/plain] ---
+  Item_Identifier  Item_Weight Item_Fat_Content  Item_Visibility    Item_Type  \
+0           FDW58       20.750          Low Fat         0.007565  Snack Foods   
+1           FDW14        8.300              reg         0.038428        Dairy   
+2           NCN55       14.600          Low Fat         0.099575       Others   
+3           FDQ58        7.315          Low Fat         0.015388  Snack Foods   
+4           FDY38          NaN          Regular         0.118599        Dairy   
+
+   Item_MRP Outlet_Identifier  Outlet_Establishment_Year Outlet_Size  \
+0  107.8622            OUT049                       1999      Medium   
+1   87.3198            OUT017                       2007         NaN   
+2  241.7538            OUT010                       1998         NaN   
+3  155.0340            OUT017                       2007         NaN   
+4  234.2300            OUT027                       1985      Medium   
+
+  Outlet_Location_Type        Outlet_Type  
+0               Tier 1  Supermarket Type1  
+1               Tier 2  Supermarket Type1  
+2               Tier 3      Grocery Store  
+3               Tier 2  Supermarket Type1  
+4               Tier 3  Supermarket Type3  
+
+================================================================================
+CELL 22 [code]
+================================================================================
+test.shape
+--- OUTPUT [text/plain] ---
+(5681, 11)
+
+================================================================================
+CELL 23 [code]
+================================================================================
+test.info()
+
+================================================================================
+CELL 24 [markdown]
+================================================================================
+# 5) Exploratory Data Analysis - EDA
+
+================================================================================
+CELL 25 [markdown]
+================================================================================
+## 6) Univariate Analysis
+
+================================================================================
+CELL 26 [markdown]
+================================================================================
+### 6.1. Numerical columns
+
+================================================================================
+CELL 27 [code]
+================================================================================
+numeric_cols = train.select_dtypes(include=['float64', 'int64']).columns.tolist()
+numeric_cols
+--- OUTPUT [text/plain] ---
+['Item_Weight',
+ 'Item_Visibility',
+ 'Item_MRP',
+ 'Outlet_Establishment_Year',
+ 'Item_Outlet_Sales']
+
+================================================================================
+CELL 28 [code]
+================================================================================
+train.describe().T
+--- OUTPUT [text/html] ---
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>count</th>
+      <th>mean</th>
+      <th>std</th>
+      <th>min</th>
+      <th>25%</th>
+      <th>50%</th>
+      <th>75%</th>
+      <th>max</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>Item_Weight</th>
+      <td>7060.0</td>
+      <td>12.857645</td>
+      <td>4.643456</td>
+      <td>4.555</td>
+      <td>8.773750</td>
+      <td>12.600000</td>
+      <td>16.850000</td>
+      <td>21.350000</td>
+    </tr>
+    <tr>
+      <th>Item_Visibility</th>
+      <td>8523.0</td>
+      <td>0.066132</td>
+      <td>0.051598</td>
+      <td>0.000</td>
+      <td>0.026989</td>
+      <td>0.053931</td>
+      <td>0.094585</td>
+      <td>0.328391</td>
+    </tr>
+    <tr>
+      <th>Item_MRP</th>
+      <td>8523.0</td>
+      <td>140.992782</td>
+      <td>62.275067</td>
+      <td>31.290</td>
+      <td>93.826500</td>
+      <td>143.012800</td>
+      <td>185.643700</td>
+      <td>266.888400</td>
+    </tr>
+    <tr>
+      <th>Outlet_Establishment_Year</th>
+      <td>8523.0</td>
+      <td>1997.831867</td>
+      <td>8.371760</td>
+      <td>1985.000</td>
+      <td>1987.000000</td>
+      <td>1999.000000</td>
+      <td>2004.000000</td>
+      <td>2009.000000</td>
+    </tr>
+    <tr>
+      <th>Item_Outlet_Sales</th>
+      <td>8523.0</td>
+      <td>2181.288914</td>
+      <td>1706.499616</td>
+      <td>33.290</td>
+      <td>834.247400</td>
+      <td>1794.331000</td>
+      <td>3101.296400</td>
+      <td>13086.964800</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+--- OUTPUT [text/plain] ---
+                            count         mean          std       min  \
+Item_Weight                7060.0    12.857645     4.643456     4.555   
+Item_Visibility            8523.0     0.066132     0.051598     0.000   
+Item_MRP                   8523.0   140.992782    62.275067    31.290   
+Outlet_Establishment_Year  8523.0  1997.831867     8.371760  1985.000   
+Item_Outlet_Sales          8523.0  2181.288914  1706.499616    33.290   
+
+                                   25%          50%          75%           max  
+Item_Weight                   8.773750    12.600000    16.850000     21.350000  
+Item_Visibility               0.026989     0.053931     0.094585      0.328391  
+Item_MRP                     93.826500   143.012800   185.643700    266.888400  
+Outlet_Establishment_Year  1987.000000  1999.000000  2004.000000   2009.000000  
+Item_Outlet_Sales           834.247400  1794.331000  3101.296400  13086.964800  
+
+================================================================================
+CELL 29 [code]
+================================================================================
+_, ax = plt.subplots(nrows=1, ncols=5, figsize=(26, 4))
+
+for index, col in enumerate(numeric_cols):
+    sns.distplot(train[col], kde=False, ax=ax[index])
+    ax[index].set_title(f'{col} distribution')
+--- OUTPUT [text/plain] ---
+<Figure size 2600x400 with 5 Axes>
+
+================================================================================
+CELL 30 [markdown]
+================================================================================
+**Observations:**
+- We observe that the item weight range from 5 Kg to 20 Kg.
+- Item_Visibility feature is right skewed.
+- There are more products in the range of 100 MRP - 180 MRP in the Item_MRP feature
+- We can observe that a lots of stores have been established in the years 1985, 1998 etc... and there was no store establishment between 1990 and 1995.
+- Item_Outlet_Sales feature is right skewed. We can may be try to do a transformation in order to obtain a normal ou Gaussian distribution
+
+================================================================================
+CELL 31 [code]
+================================================================================
+_, ax = plt.subplots(nrows=1, ncols=5, figsize=(26, 4))
+
+for index, col in enumerate(numeric_cols):
+    sns.kdeplot(data=train, x=col, ax=ax[index])
+    ax[index].set_title(f'{col} distribution in Train')
+--- OUTPUT [text/plain] ---
+<Figure size 2600x400 with 5 Axes>
+
+================================================================================
+CELL 32 [code]
+================================================================================
+_, ax = plt.subplots(nrows=1, ncols=4, figsize=(26, 4))
+
+for index, col in enumerate(['Item_Weight', 'Item_Visibility', 'Item_MRP', 'Outlet_Establishment_Year']):
+    sns.distplot(test[col], kde=True, ax=ax[index])
+    ax[index].set_title(f'{col} distribution in Test')
+--- OUTPUT [text/plain] ---
+<Figure size 2600x400 with 4 Axes>
+
+================================================================================
+CELL 33 [code]
+================================================================================
+_, ax = plt.subplots(nrows=1, ncols=5, figsize=(26,8))
+for index, col in enumerate(numeric_cols):
+    sns.boxplot(data=train, y=col, ax=ax[index])
+    ax[index].set_title(f'{col} distribution')
+--- OUTPUT [text/plain] ---
+<Figure size 2600x800 with 5 Axes>
+
+================================================================================
+CELL 34 [markdown]
+================================================================================
+**Observations:**
+- There are almost no outliers in the Item_Weight, Item_MRP and Outlet_Establishment_Year features.
+- Conversely there are some **outliers to be removed in the Item_Visibility and Item_Outlet_Sales features.**
+- The train and the test data have almost the same distributions
+
+================================================================================
+CELL 35 [code]
+================================================================================
+_, ax = plt.subplots(nrows=1, ncols=5, figsize=(26,8))
+for index, col in enumerate(numeric_cols):
+    sns.violinplot(data=train, y=col, ax=ax[index], inner='quartile')
+    ax[index].set_title(f'{col} distribution')
+--- OUTPUT [text/plain] ---
+<Figure size 2600x800 with 5 Axes>
+
+================================================================================
+CELL 36 [markdown]
+================================================================================
+These graphs confirm the above observations about outliers in **Item_Visibility and Item_Outlet_Sales features.**
+
+================================================================================
+CELL 37 [markdown]
+================================================================================
+### 6.1. Categorical columns
+
+================================================================================
+CELL 38 [code]
+================================================================================
+categorical_cols = train.select_dtypes(include=['object']).columns.tolist()
+categorical_cols
+--- OUTPUT [text/plain] ---
+['Item_Identifier',
+ 'Item_Fat_Content',
+ 'Item_Type',
+ 'Outlet_Identifier',
+ 'Outlet_Size',
+ 'Outlet_Location_Type',
+ 'Outlet_Type']
+
+================================================================================
+CELL 39 [code]
+================================================================================
+categorical_cols_to_display = [ 
+                                 'Item_Fat_Content',
+                                 'Item_Type',
+                                 'Outlet_Size',
+                                 'Outlet_Location_Type',
+                                 'Outlet_Type'
+                                ]
+for col in categorical_cols_to_display:
+    print(f"Number of values in the {col} column is:\n{train[col].value_counts() }")
+    print("--" * 30)
+
+================================================================================
+CELL 40 [code]
+================================================================================
+train['Outlet_Location_Type'].unique().tolist()
+--- OUTPUT [text/plain] ---
+['Tier 1', 'Tier 3', 'Tier 2']
+
+================================================================================
+CELL 41 [code]
+================================================================================
+_, ax = plt.subplots(nrows=3, ncols=2, figsize=(32, 36))
+
+for index, col in enumerate(categorical_cols_to_display):
+    r = index // 2
+    c = index % 2
+    g = sns.countplot(data=train, x=col , ax=ax[r][c], width=0.6)
+    g.set_xticklabels(g.get_xticklabels(), rotation=45, ha="right", fontsize=18)
+    ax[r][c].set_title(f'{col} distribution', fontsize=24)
+    plt.tight_layout()
+--- OUTPUT [text/plain] ---
+<Figure size 3200x3600 with 6 Axes>
+
+================================================================================
+CELL 42 [code]
+================================================================================
+_, ax = plt.subplots(nrows=3, ncols=2, figsize=(16, 16))
+
+for index, col in enumerate(categorical_cols_to_display):
+    r = index // 2
+    c = index % 2
+    train[col].value_counts().plot(kind="pie", autopct="%.2f", ax=ax[r][c])
+    #g.set_xticklabels(g.get_xticklabels(), rotation=45, ha="right", fontsize=18)
+    #ax[r][c].set_title(f'{col} distribution', fontsize=24)
+    plt.tight_layout()
+--- OUTPUT [text/plain] ---
+<Figure size 1600x1600 with 6 Axes>
+
+================================================================================
+CELL 43 [markdown]
+================================================================================
+**Observations:**
+- The Item_Fat_Content column must be cleaned because there are some entry errors:
+    * 'Low Fat', 'low fat' and 'LF' should be the same category
+    * Similarly 'Regular' and 'reg' should the same
+Another remarq in this column is that 'Low Fat' item category is greater than 'Regular' one.
+
+- There are 16 different categories in the the Item_type feature. I think it's a lot. May be in the feature engineering section we can try to group them into categories. For example grouping: 
+    * 'Soft Drinks' and 'Hard Drinks' into a 'Drinks' category or
+    * 'Snack Foods', 'Frozen Foods', 'Snarchy Foods' and 'Seafood' into a 'Foods' category.
+    
+- To encode the Outlet_Location_Type feature, we just have to extract the last character i.e:
+    * 'Tier 1' ---> 1
+    * 'Tier 2' ---> 2
+    * 'Tier 3' ---> 3
+
+================================================================================
+CELL 44 [markdown]
+================================================================================
+## 7) Bivariate Analysis
+
+================================================================================
+CELL 45 [markdown]
+================================================================================
+### 7.1. Numerical-Numerical
+
+================================================================================
+CELL 46 [code]
+================================================================================
+target = "Item_Outlet_Sales"
+
+================================================================================
+CELL 47 [code]
+================================================================================
+_, ax = plt.subplots(nrows=1, ncols=3, figsize=(26, 4))
+
+for index, col in enumerate(['Item_Weight', 'Item_Visibility', 'Item_MRP']):
+    sns.scatterplot(data=train,x=col, y=target, ax=ax[index])
+    #ax[index].set_title(f'{col} distribution')
+--- OUTPUT [text/plain] ---
+<Figure size 2600x400 with 3 Axes>
+
+================================================================================
+CELL 48 [code]
+================================================================================
+_, ax = plt.subplots(nrows=1, ncols=3, figsize=(26, 4))
+
+for index, col in enumerate(['Item_Weight', 'Item_Visibility', 'Item_MRP']):
+    sns.scatterplot(data=train,x=col, y=target, ax=ax[index], hue='Outlet_Type')
+--- OUTPUT [text/plain] ---
+<Figure size 2600x400 with 3 Axes>
+
+================================================================================
+CELL 49 [code]
+================================================================================
+sns.heatmap(train.corr(), annot=True)
+--- OUTPUT [text/plain] ---
+<Axes: >
+--- OUTPUT [text/plain] ---
+<Figure size 640x480 with 2 Axes>
+
+================================================================================
+CELL 50 [markdown]
+================================================================================
+### 7.2. Numerical-Categorical
+
+================================================================================
+CELL 51 [code]
+================================================================================
+sns.barplot(data=train, x='Outlet_Size', y=target)
+--- OUTPUT [text/plain] ---
+<Axes: xlabel='Outlet_Size', ylabel='Item_Outlet_Sales'>
+--- OUTPUT [text/plain] ---
+<Figure size 640x480 with 1 Axes>
+
+================================================================================
+CELL 52 [code]
+================================================================================
+train.Outlet_Establishment_Year
+--- OUTPUT [text/plain] ---
+0       1999
+1       2009
+2       1999
+3       1998
+4       1987
+        ... 
+8518    1987
+8519    2002
+8520    2004
+8521    2009
+8522    1997
+Name: Outlet_Establishment_Year, Length: 8523, dtype: int64
+
+================================================================================
+CELL 53 [markdown]
+================================================================================
+# 8) Missing Value Treatment
+
+================================================================================
+CELL 54 [code]
+================================================================================
+# We cannot use KNN Imputer since the there are still categorical values in the data
+"""imputer = KNNImputer(n_neighbors=5)
+train = pd.DataFrame(imputer.fit_transform(train),columns = train.columns)"""
+--- OUTPUT [text/plain] ---
+'imputer = KNNImputer(n_neighbors=5)\ntrain = pd.DataFrame(imputer.fit_transform(train),columns = train.columns)'
+
+================================================================================
+CELL 55 [markdown]
+================================================================================
+- **OutLet_Size** is a catogerial column, we can use the **mode** to fill the missing values.
+- **Item_weight** is a numeric column and after visualizations, we can see clearly that there are no outliers in this feature. So we can replace missing values with its **mean**.
+
+================================================================================
+CELL 56 [code]
+================================================================================
+#filling the object values with mode and float type with mean
+
+# for train
+train['Outlet_Size'] = train.Outlet_Size.fillna(train.Outlet_Size.dropna().mode()[0]) #replace by the median after
+train['Item_Weight'] = train.Item_Weight.fillna(train.Item_Weight.mean())
+
+# for test
+test['Outlet_Size'] = test.Outlet_Size.fillna(test.Outlet_Size.dropna().mode()[0]) #replace by the median after
+test['Item_Weight'] = test.Item_Weight.fillna(test.Item_Weight.mean())
+
+================================================================================
+CELL 57 [code]
+================================================================================
+# get the number of missing datapoints per column
+train.isnull().sum()
+--- OUTPUT [text/plain] ---
+Item_Identifier              0
+Item_Weight                  0
+Item_Fat_Content             0
+Item_Visibility              0
+Item_Type                    0
+Item_MRP                     0
+Outlet_Identifier            0
+Outlet_Establishment_Year    0
+Outlet_Size                  0
+Outlet_Location_Type         0
+Outlet_Type                  0
+Item_Outlet_Sales            0
+dtype: int64
+
+================================================================================
+CELL 58 [markdown]
+================================================================================
+# 9) Feature Engineering
+
+================================================================================
+CELL 59 [code]
+================================================================================
+# function to detect outliers using the IQR method
+
+def detect_outliers(df, feature):
+    Q1  = df[feature].quantile(0.25)
+    Q3  = df[feature].quantile(0.75)
+    IQR = Q3 - Q1
+    
+    upper_limit = Q3 + 1.5 * IQR
+    lower_limit = Q1 - 1.5 * IQR
+    return upper_limit, lower_limit
+
+upper, lower = detect_outliers(train, "Item_Visibility")
+print("Upper limit: ", upper)
+print("Lower limit: ", lower)
+
+_, ax = plt.subplots(nrows=1, ncols=2, figsize=(32, 6))
+sns.boxplot(x=train['Item_Visibility'], ax=ax[0])
+
+# removing outliers using the above function
+train = train[(train['Item_Visibility'] > lower) & (train['Item_Visibility'] < upper)] #train
+test = test[(test['Item_Visibility'] > lower) & (test['Item_Visibility'] < upper)]     #test
+
+sns.boxplot(x=train['Item_Visibility'], ax=ax[1])
+plt.title('Item_Visibility Distribution before VS after removing outliers')
+plt.show()
+--- OUTPUT [text/plain] ---
+<Figure size 3200x600 with 2 Axes>
+
+================================================================================
+CELL 60 [code]
+================================================================================
+# detect outliers in the Item_Outlet_Sales feature
+upper, lower = detect_outliers(train, "Item_Outlet_Sales")
+print("Upper limit: ", upper)
+print("Lower limit: ", lower)
+
+_, ax = plt.subplots(nrows=1, ncols=2, figsize=(32, 6))
+sns.boxplot(x=train['Item_Outlet_Sales'], ax=ax[0])
+
+# removing outliers using the same function
+train = train[(train['Item_Outlet_Sales'] > lower) & (train['Item_Outlet_Sales'] < upper)]
+
+sns.boxplot(x=train['Item_Outlet_Sales'], ax=ax[1])
+plt.title('Item Outlet Sales Distribution before VS after removing outliers')
+plt.show()
+--- OUTPUT [text/plain] ---
+<Figure size 3200x600 with 2 Axes>
+
+================================================================================
+CELL 61 [code]
+================================================================================
+# Let's correct the errors in the Item_Fat_Content column
+
+train['Item_Fat_Content'] = train['Item_Fat_Content'].map({'Low Fat' :'Low Fat',
+                                                           'low fat' :"Low Fat",
+                                                           'LF'      :"Low Fat",
+                                                           'Regular' :'Regular',
+                                                           'reg'     :"Regular"
+                                                          })
+
+test['Item_Fat_Content'] = test['Item_Fat_Content'].map({'Low Fat' :'Low Fat',
+                                                           'low fat' :"Low Fat",
+                                                           'LF'      :"Low Fat",
+                                                           'Regular' :'Regular',
+                                                           'reg'     :"Regular"
+                                                          })
+
+sns.countplot(x=train['Item_Fat_Content']);
+--- OUTPUT [text/plain] ---
+<Figure size 640x480 with 1 Axes>
+
+================================================================================
+CELL 62 [code]
+================================================================================
+# getting the amount of established years in new column and delete old column
+train['Outlet_Age'] = 2023 - train['Outlet_Establishment_Year']
+test['Outlet_Age'] = 2023 - test['Outlet_Establishment_Year']
+
+del train['Outlet_Establishment_Year']
+del test['Outlet_Establishment_Year']
+
+sns.countplot(x=train['Outlet_Age']);
+--- OUTPUT [text/plain] ---
+<Figure size 640x480 with 1 Axes>
+
+================================================================================
+CELL 63 [markdown]
+================================================================================
+# 10) Encoding Categorical Variables
+
+================================================================================
+CELL 64 [markdown]
+================================================================================
+## 11) Label Encoding
+
+================================================================================
+CELL 65 [code]
+================================================================================
+train['Outlet_Size'] = train['Outlet_Size'].map({'Small'  : 1,
+                                                 'Medium' : 2,
+                                                 'High'   : 3
+                                                 }).astype(int)
+
+test['Outlet_Size'] = test['Outlet_Size'].map({'Small'  : 1,
+                                               'Medium' : 2,
+                                               'High'   : 3
+                                              }).astype(int)
+
+sns.countplot(x=train['Outlet_Size']);
+--- OUTPUT [text/plain] ---
+<Figure size 640x480 with 1 Axes>
+
+================================================================================
+CELL 66 [code]
+================================================================================
+# Outlet_Location_Type feature encoding by getting the last character and converting to int type
+
+train['Outlet_Location_Type'] = train['Outlet_Location_Type'].str[-1:].astype(int)
+test['Outlet_Location_Type']  = test['Outlet_Location_Type'].str[-1:].astype(int)
+sns.countplot(x=train['Outlet_Location_Type'])
+--- OUTPUT [text/plain] ---
+<Axes: xlabel='Outlet_Location_Type', ylabel='count'>
+--- OUTPUT [text/plain] ---
+<Figure size 640x480 with 1 Axes>
+
+================================================================================
+CELL 67 [markdown]
+================================================================================
+In the Item_Type feature, there are 16 catgories but when we look closely to Item_Identifier_Categories, it has first two characters defining the item type, these are:
+- **FD** for probably **Food**;
+- **DR** for probably **Drinks**;
+- **NC** for probably **Non-Consumables**. 
+
+**So we'll drop the Item_Identifier feature and create a new column containing these categories.**
+
+================================================================================
+CELL 68 [code]
+================================================================================
+train['Item_Identifier_Categories'] = train['Item_Identifier'].str[0:2] #.astype(int)
+test['Item_Identifier_Categories']  = test['Item_Identifier'].str[0:2]
+
+sns.countplot(x=train['Item_Identifier_Categories'])
+--- OUTPUT [text/plain] ---
+<Axes: xlabel='Item_Identifier_Categories', ylabel='count'>
+--- OUTPUT [text/plain] ---
+<Figure size 640x480 with 1 Axes>
+
+================================================================================
+CELL 69 [code]
+================================================================================
+train.head()
+--- OUTPUT [text/html] ---
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Item_Identifier</th>
+      <th>Item_Weight</th>
+      <th>Item_Fat_Content</th>
+      <th>Item_Visibility</th>
+      <th>Item_Type</th>
+      <th>Item_MRP</th>
+      <th>Outlet_Identifier</th>
+      <th>Outlet_Size</th>
+      <th>Outlet_Location_Type</th>
+      <th>Outlet_Type</th>
+      <th>Item_Outlet_Sales</th>
+      <th>Outlet_Age</th>
+      <th>Item_Identifier_Categories</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>FDA15</td>
+      <td>9.30</td>
+      <td>Low Fat</td>
+      <td>0.016047</td>
+      <td>Dairy</td>
+      <td>249.8092</td>
+      <td>OUT049</td>
+      <td>2</td>
+      <td>1</td>
+      <td>Supermarket Type1</td>
+      <td>3735.1380</td>
+      <td>24</td>
+      <td>FD</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>DRC01</td>
+      <td>5.92</td>
+      <td>Regular</td>
+      <td>0.019278</td>
+      <td>Soft Drinks</td>
+      <td>48.2692</td>
+      <td>OUT018</td>
+      <td>2</td>
+      <td>3</td>
+      <td>Supermarket Type2</td>
+      <td>443.4228</td>
+      <td>14</td>
+      <td>DR</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>FDN15</td>
+      <td>17.50</td>
+      <td>Low Fat</td>
+      <td>0.016760</td>
+      <td>Meat</td>
+      <td>141.6180</td>
+      <td>OUT049</td>
+      <td>2</td>
+      <td>1</td>
+      <td>Supermarket Type1</td>
+      <td>2097.2700</td>
+      <td>24</td>
+      <td>FD</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>FDX07</td>
+      <td>19.20</td>
+      <td>Regular</td>
+      <td>0.000000</td>
+      <td>Fruits and Vegetables</td>
+      <td>182.0950</td>
+      <td>OUT010</td>
+      <td>2</td>
+      <td>3</td>
+      <td>Grocery Store</td>
+      <td>732.3800</td>
+      <td>25</td>
+      <td>FD</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>NCD19</td>
+      <td>8.93</td>
+      <td>Low Fat</td>
+      <td>0.000000</td>
+      <td>Household</td>
+      <td>53.8614</td>
+      <td>OUT013</td>
+      <td>3</td>
+      <td>3</td>
+      <td>Supermarket Type1</td>
+      <td>994.7052</td>
+      <td>36</td>
+      <td>NC</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+--- OUTPUT [text/plain] ---
+  Item_Identifier  Item_Weight Item_Fat_Content  Item_Visibility  \
+0           FDA15         9.30          Low Fat         0.016047   
+1           DRC01         5.92          Regular         0.019278   
+2           FDN15        17.50          Low Fat         0.016760   
+3           FDX07        19.20          Regular         0.000000   
+4           NCD19         8.93          Low Fat         0.000000   
+
+               Item_Type  Item_MRP Outlet_Identifier  Outlet_Size  \
+0                  Dairy  249.8092            OUT049            2   
+1            Soft Drinks   48.2692            OUT018            2   
+2                   Meat  141.6180            OUT049            2   
+3  Fruits and Vegetables  182.0950            OUT010            2   
+4              Household   53.8614            OUT013            3   
+
+   Outlet_Location_Type        Outlet_Type  Item_Outlet_Sales  Outlet_Age  \
+0                     1  Supermarket Type1          3735.1380          24   
+1                     3  Supermarket Type2           443.4228          14   
+2                     1  Supermarket Type1          2097.2700          24   
+3                     3      Grocery Store           732.3800          25   
+4                     3  Supermarket Type1           994.7052          36   
+
+  Item_Identifier_Categories  
+0                         FD  
+1                         DR  
+2                         FD  
+3                         FD  
+4                         NC  
+
+================================================================================
+CELL 70 [code]
+================================================================================
+#Label Encoder for Ordinate Data
+
+encoder = LabelEncoder()
+ordinal_features = ['Item_Fat_Content', 'Outlet_Type', 'Outlet_Location_Type']
+
+for feature in ordinal_features:
+    train[feature] = encoder.fit_transform(train[feature])
+    test[feature]  = encoder.fit_transform(test[feature])
+
+train.shape
+--- OUTPUT [text/plain] ---
+(8193, 13)
+
+================================================================================
+CELL 71 [code]
+================================================================================
+test.shape
+--- OUTPUT [text/plain] ---
+(5570, 12)
+
+================================================================================
+CELL 72 [code]
+================================================================================
+train.head()
+--- OUTPUT [text/html] ---
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Item_Identifier</th>
+      <th>Item_Weight</th>
+      <th>Item_Fat_Content</th>
+      <th>Item_Visibility</th>
+      <th>Item_Type</th>
+      <th>Item_MRP</th>
+      <th>Outlet_Identifier</th>
+      <th>Outlet_Size</th>
+      <th>Outlet_Location_Type</th>
+      <th>Outlet_Type</th>
+      <th>Item_Outlet_Sales</th>
+      <th>Outlet_Age</th>
+      <th>Item_Identifier_Categories</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>FDA15</td>
+      <td>9.30</td>
+      <td>0</td>
+      <td>0.016047</td>
+      <td>Dairy</td>
+      <td>249.8092</td>
+      <td>OUT049</td>
+      <td>2</td>
+      <td>0</td>
+      <td>1</td>
+      <td>3735.1380</td>
+      <td>24</td>
+      <td>FD</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>DRC01</td>
+      <td>5.92</td>
+      <td>1</td>
+      <td>0.019278</td>
+      <td>Soft Drinks</td>
+      <td>48.2692</td>
+      <td>OUT018</td>
+      <td>2</td>
+      <td>2</td>
+      <td>2</td>
+      <td>443.4228</td>
+      <td>14</td>
+      <td>DR</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>FDN15</td>
+      <td>17.50</td>
+      <td>0</td>
+      <td>0.016760</td>
+      <td>Meat</td>
+      <td>141.6180</td>
+      <td>OUT049</td>
+      <td>2</td>
+      <td>0</td>
+      <td>1</td>
+      <td>2097.2700</td>
+      <td>24</td>
+      <td>FD</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>FDX07</td>
+      <td>19.20</td>
+      <td>1</td>
+      <td>0.000000</td>
+      <td>Fruits and Vegetables</td>
+      <td>182.0950</td>
+      <td>OUT010</td>
+      <td>2</td>
+      <td>2</td>
+      <td>0</td>
+      <td>732.3800</td>
+      <td>25</td>
+      <td>FD</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>NCD19</td>
+      <td>8.93</td>
+      <td>0</td>
+      <td>0.000000</td>
+      <td>Household</td>
+      <td>53.8614</td>
+      <td>OUT013</td>
+      <td>3</td>
+      <td>2</td>
+      <td>1</td>
+      <td>994.7052</td>
+      <td>36</td>
+      <td>NC</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+--- OUTPUT [text/plain] ---
+  Item_Identifier  Item_Weight  Item_Fat_Content  Item_Visibility  \
+0           FDA15         9.30                 0         0.016047   
+1           DRC01         5.92                 1         0.019278   
+2           FDN15        17.50                 0         0.016760   
+3           FDX07        19.20                 1         0.000000   
+4           NCD19         8.93                 0         0.000000   
+
+               Item_Type  Item_MRP Outlet_Identifier  Outlet_Size  \
+0                  Dairy  249.8092            OUT049            2   
+1            Soft Drinks   48.2692            OUT018            2   
+2                   Meat  141.6180            OUT049            2   
+3  Fruits and Vegetables  182.0950            OUT010            2   
+4              Household   53.8614            OUT013            3   
+
+   Outlet_Location_Type  Outlet_Type  Item_Outlet_Sales  Outlet_Age  \
+0                     0            1          3735.1380          24   
+1                     2            2           443.4228          14   
+2                     0            1          2097.2700          24   
+3                     2            0           732.3800          25   
+4                     2            1           994.7052          36   
+
+  Item_Identifier_Categories  
+0                         FD  
+1                         DR  
+2                         FD  
+3                         FD  
+4                         NC  
+
+================================================================================
+CELL 73 [markdown]
+================================================================================
+## 12) One Hot Encoding
+
+================================================================================
+CELL 74 [code]
+================================================================================
+# One Hot Encoding for 'Item_Type' variable
+
+train = pd.get_dummies(train, columns=['Item_Type', 'Item_Identifier_Categories', 'Outlet_Identifier'], drop_first=True)
+test  = pd.get_dummies(test,  columns=['Item_Type', 'Item_Identifier_Categories', 'Outlet_Identifier'], drop_first=True)
+
+================================================================================
+CELL 75 [code]
+================================================================================
+train.head()
+train.shape
+--- OUTPUT [text/plain] ---
+(8193, 36)
+
+================================================================================
+CELL 76 [markdown]
+================================================================================
+## 13) PreProcessing Data
+
+================================================================================
+CELL 77 [code]
+================================================================================
+# Let's drop useless columns
+train.drop(labels=['Item_Identifier'], axis=1, inplace=True)
+test.drop(labels=['Item_Identifier'],  axis=1, inplace=True)
+
+================================================================================
+CELL 78 [code]
+================================================================================
+X = train.drop('Item_Outlet_Sales', axis=1)
+y = train['Item_Outlet_Sales']
+
+================================================================================
+CELL 79 [code]
+================================================================================
+X.head()
+--- OUTPUT [text/html] ---
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: right;">
+      <th></th>
+      <th>Item_Weight</th>
+      <th>Item_Fat_Content</th>
+      <th>Item_Visibility</th>
+      <th>Item_MRP</th>
+      <th>Outlet_Size</th>
+      <th>Outlet_Location_Type</th>
+      <th>Outlet_Type</th>
+      <th>Outlet_Age</th>
+      <th>Item_Type_Breads</th>
+      <th>Item_Type_Breakfast</th>
+      <th>...</th>
+      <th>Item_Identifier_Categories_NC</th>
+      <th>Outlet_Identifier_OUT013</th>
+      <th>Outlet_Identifier_OUT017</th>
+      <th>Outlet_Identifier_OUT018</th>
+      <th>Outlet_Identifier_OUT019</th>
+      <th>Outlet_Identifier_OUT027</th>
+      <th>Outlet_Identifier_OUT035</th>
+      <th>Outlet_Identifier_OUT045</th>
+      <th>Outlet_Identifier_OUT046</th>
+      <th>Outlet_Identifier_OUT049</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th>0</th>
+      <td>9.30</td>
+      <td>0</td>
+      <td>0.016047</td>
+      <td>249.8092</td>
+      <td>2</td>
+      <td>0</td>
+      <td>1</td>
+      <td>24</td>
+      <td>0</td>
+      <td>0</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>1</th>
+      <td>5.92</td>
+      <td>1</td>
+      <td>0.019278</td>
+      <td>48.2692</td>
+      <td>2</td>
+      <td>2</td>
+      <td>2</td>
+      <td>14</td>
+      <td>0</td>
+      <td>0</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>2</th>
+      <td>17.50</td>
+      <td>0</td>
+      <td>0.016760</td>
+      <td>141.6180</td>
+      <td>2</td>
+      <td>0</td>
+      <td>1</td>
+      <td>24</td>
+      <td>0</td>
+      <td>0</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>1</td>
+    </tr>
+    <tr>
+      <th>3</th>
+      <td>19.20</td>
+      <td>1</td>
+      <td>0.000000</td>
+      <td>182.0950</td>
+      <td>2</td>
+      <td>2</td>
+      <td>0</td>
+      <td>25</td>
+      <td>0</td>
+      <td>0</td>
+      <td>...</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    <tr>
+      <th>4</th>
+      <td>8.93</td>
+      <td>0</td>
+      <td>0.000000</td>
+      <td>53.8614</td>
+      <td>3</td>
+      <td>2</td>
+      <td>1</td>
+      <td>36</td>
+      <td>0</td>
+      <td>0</td>
+      <td>...</td>
+      <td>1</td>
+      <td>1</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+  </tbody>
+</table>
+<p>5 rows Ã— 34 columns</p>
+</div>
+--- OUTPUT [text/plain] ---
+   Item_Weight  Item_Fat_Content  Item_Visibility  Item_MRP  Outlet_Size  \
+0         9.30                 0         0.016047  249.8092            2   
+1         5.92                 1         0.019278   48.2692            2   
+2        17.50                 0         0.016760  141.6180            2   
+3        19.20                 1         0.000000  182.0950            2   
+4         8.93                 0         0.000000   53.8614            3   
+
+   Outlet_Location_Type  Outlet_Type  Outlet_Age  Item_Type_Breads  \
+0                     0            1          24                 0   
+1                     2            2          14                 0   
+2                     0            1          24                 0   
+3                     2            0          25                 0   
+4                     2            1          36                 0   
+
+   Item_Type_Breakfast  ...  Item_Identifier_Categories_NC  \
+0                    0  ...                              0   
+1                    0  ...                              0   
+2                    0  ...                              0   
+3                    0  ...                              0   
+4                    0  ...                              1   
+
+   Outlet_Identifier_OUT013  Outlet_Identifier_OUT017  \
+0                         0                         0   
+1                         0                         0   
+2                         0                         0   
+3                         0                         0   
+4                         1                         0   
+
+   Outlet_Identifier_OUT018  Outlet_Identifier_OUT019  \
+0                         0                         0   
+1                         1                         0   
+2                         0                         0   
+3                         0                         0   
+4                         0                         0   
+
+   Outlet_Identifier_OUT027  Outlet_Identifier_OUT035  \
+0                         0                         0   
+1                         0                         0   
+2                         0                         0   
+3                         0                         0   
+4                         0                         0   
+
+   Outlet_Identifier_OUT045  Outlet_Identifier_OUT046  \
+0                         0                         0   
+1                         0                         0   
+2                         0                         0   
+3                         0                         0   
+4                         0                         0   
+
+   Outlet_Identifier_OUT049  
+0                         1  
+1                         0  
+2                         1  
+3                         0  
+4                         0  
+
+[5 rows x 34 columns]
+
+================================================================================
+CELL 80 [code]
+================================================================================
+y.head()
+--- OUTPUT [text/plain] ---
+0    3735.1380
+1     443.4228
+2    2097.2700
+3     732.3800
+4     994.7052
+Name: Item_Outlet_Sales, dtype: float64
+
+================================================================================
+CELL 81 [code]
+================================================================================
+# splitting into training set and test set 80%-20%
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+================================================================================
+CELL 82 [markdown]
+================================================================================
+# 14) Modeling
+
+================================================================================
+CELL 83 [markdown]
+================================================================================
+## 15) Linear Regression
+
+================================================================================
+CELL 84 [code]
+================================================================================
+lin_reg_model = LinearRegression()
+lin_reg_model.fit(X_train, y_train)
+--- OUTPUT [text/html] ---
+<style>#sk-container-id-1 {color: black;background-color: white;}#sk-container-id-1 pre{padding: 0;}#sk-container-id-1 div.sk-toggleable {background-color: white;}#sk-container-id-1 label.sk-toggleable__label {cursor: pointer;display: block;width: 100%;margin-bottom: 0;padding: 0.3em;box-sizing: border-box;text-align: center;}#sk-container-id-1 label.sk-toggleable__label-arrow:before {content: "â–¸";float: left;margin-right: 0.25em;color: #696969;}#sk-container-id-1 label.sk-toggleable__label-arrow:hover:before {color: black;}#sk-container-id-1 div.sk-estimator:hover label.sk-toggleable__label-arrow:before {color: black;}#sk-container-id-1 div.sk-toggleable__content {max-height: 0;max-width: 0;overflow: hidden;text-align: left;background-color: #f0f8ff;}#sk-container-id-1 div.sk-toggleable__content pre {margin: 0.2em;color: black;border-radius: 0.25em;background-color: #f0f8ff;}#sk-container-id-1 input.sk-toggleable__control:checked~div.sk-toggleable__content {max-height: 200px;max-width: 100%;overflow: auto;}#sk-container-id-1 input.sk-toggleable__control:checked~label.sk-toggleable__label-arrow:before {content: "â–¾";}#sk-container-id-1 div.sk-estimator input.sk-toggleable__control:checked~label.sk-toggleable__label {background-color: #d4ebff;}#sk-container-id-1 div.sk-label input.sk-toggleable__control:checked~label.sk-toggleable__label {background-color: #d4ebff;}#sk-container-id-1 input.sk-hidden--visually {border: 0;clip: rect(1px 1px 1px 1px);clip: rect(1px, 1px, 1px, 1px);height: 1px;margin: -1px;overflow: hidden;padding: 0;position: absolute;width: 1px;}#sk-container-id-1 div.sk-estimator {font-family: monospace;background-color: #f0f8ff;border: 1px dotted black;border-radius: 0.25em;box-sizing: border-box;margin-bottom: 0.5em;}#sk-container-id-1 div.sk-estimator:hover {background-color: #d4ebff;}#sk-container-id-1 div.sk-parallel-item::after {content: "";width: 100%;border-bottom: 1px solid gray;flex-grow: 1;}#sk-container-id-1 div.sk-label:hover label.sk-toggleable__label {background-color: #d4ebff;}#sk-container-id-1 div.sk-serial::before {content: "";position: absolute;border-left: 1px solid gray;box-sizing: border-box;top: 0;bottom: 0;left: 50%;z-index: 0;}#sk-container-id-1 div.sk-serial {display: flex;flex-direction: column;align-items: center;background-color: white;padding-right: 0.2em;padding-left: 0.2em;position: relative;}#sk-container-id-1 div.sk-item {position: relative;z-index: 1;}#sk-container-id-1 div.sk-parallel {display: flex;align-items: stretch;justify-content: center;background-color: white;position: relative;}#sk-container-id-1 div.sk-item::before, #sk-container-id-1 div.sk-parallel-item::before {content: "";position: absolute;border-left: 1px solid gray;box-sizing: border-box;top: 0;bottom: 0;left: 50%;z-index: -1;}#sk-container-id-1 div.sk-parallel-item {display: flex;flex-direction: column;z-index: 1;position: relative;background-color: white;}#sk-container-id-1 div.sk-parallel-item:first-child::after {align-self: flex-end;width: 50%;}#sk-container-id-1 div.sk-parallel-item:last-child::after {align-self: flex-start;width: 50%;}#sk-container-id-1 div.sk-parallel-item:only-child::after {width: 0;}#sk-container-id-1 div.sk-dashed-wrapped {border: 1px dashed gray;margin: 0 0.4em 0.5em 0.4em;box-sizing: border-box;padding-bottom: 0.4em;background-color: white;}#sk-container-id-1 div.sk-label label {font-family: monospace;font-weight: bold;display: inline-block;line-height: 1.2em;}#sk-container-id-1 div.sk-label-container {text-align: center;}#sk-container-id-1 div.sk-container {/* jupyter's `normalize.less` sets `[hidden] { display: none; }` but bootstrap.min.css set `[hidden] { display: none !important; }` so we also need the `!important` here to be able to override the default hidden behavior on the sphinx rendered scikit-learn.org. See: https://github.com/scikit-learn/scikit-learn/issues/21755 */display: inline-block !important;position: relative;}#sk-container-id-1 div.sk-text-repr-fallback {display: none;}</style><div id="sk-container-id-1" class="sk-top-container"><div class="sk-text-repr-fallback"><pre>LinearRegression()</pre><b>In a Jupyter environment, please rerun this cell to show the HTML representation or trust the notebook. <br />On GitHub, the HTML representation is unable to render, please try loading this page with nbviewer.org.</b></div><div class="sk-container" hidden><div class="sk-item"><div class="sk-estimator sk-toggleable"><input class="sk-toggleable__control sk-hidden--visually" id="sk-estimator-id-1" type="checkbox" checked><label for="sk-estimator-id-1" class="sk-toggleable__label sk-toggleable__label-arrow">LinearRegression</label><div class="sk-toggleable__content"><pre>LinearRegression()</pre></div></div></div></div></div>
+--- OUTPUT [text/plain] ---
+LinearRegression()
+
+================================================================================
+CELL 85 [code]
+================================================================================
+# Predictions for LinearRegression on the test data
+lin_reg_predictions = lin_reg_model.predict(X_test)
+
+================================================================================
+CELL 86 [code]
+================================================================================
+print('Training score  : {}'.format(lin_reg_model.score(X_train, y_train)))
+print('Test score      : {}'.format(lin_reg_model.score(X_test, y_test)))
+
+================================================================================
+CELL 87 [code]
+================================================================================
+# Evaluation
+lin_reg_mse  = mean_squared_error(y_test , lin_reg_predictions)
+lin_reg_rmse = math.sqrt(lin_reg_mse)
+lin_reg_r2   = r2_score(y_test, lin_reg_predictions)
+
+print('RMSE  \t         ----> {}'.format(lin_reg_rmse))
+print('R2 Score         ----> {}'.format(lin_reg_r2))
+
+================================================================================
+CELL 88 [markdown]
+================================================================================
+The LinearRegression model above give us a training accuracy and a test accuracy of about 55%. We also get an RMSE of about 1021.52 and a R2 score of 0.54.  
+Let's try to add some polynomial features to see how good the Linear Regression performs. However, something else we would like to do is standardize our data. This scales our data down to a range between 0 and 1. This serves the purpose of letting us work with reasonable numbers when we raise to a power.
+
+================================================================================
+CELL 89 [code]
+================================================================================
+steps = [
+    ('scaler', StandardScaler()),
+    ('poly',   PolynomialFeatures(degree=2)),
+    ('model',  LinearRegression())
+       ]
+
+lin_reg_pipeline = Pipeline(steps)
+
+lin_reg_pipeline.fit(X_train, y_train)
+
+print('Training score  : {}'.format(lin_reg_pipeline.score(X_train, y_train)))
+print('Test score      : {}'.format(lin_reg_pipeline.score(X_test, y_test)))
+
+================================================================================
+CELL 90 [markdown]
+================================================================================
+We got a better Training score of about 0.5998 but the Test score is 0.56 which means that the models start to overfit the data. If we increase the degree of PolynomialFeatures it will get worse.
+
+================================================================================
+CELL 91 [markdown]
+================================================================================
+## 16) Regularized Linear Regression
+
+================================================================================
+CELL 92 [markdown]
+================================================================================
+### 16.1. Ridge Regression or l2 Regularization
+
+To understand Ridge Regression, we need to remind ourselves of what happens during gradient descent, when our model coefficients are trained. During training, our initial weights are updated according to a gradient update rule using a learning rate and a gradient. Ridge regression adds a penalty to the update, and as a result shrinks the size of our weights. This is implemented in scikit-learn as a class called Ridge.  
+We will specify our regularization strength by passing in a parameter, alpha. **The larger the value of alpha, the less variance your model will exhibit.**
+
+================================================================================
+CELL 93 [code]
+================================================================================
+steps = [
+            ('scaler', StandardScaler()),
+            ('poly'  , PolynomialFeatures(degree=2)),
+            ('model' , Ridge(alpha=7, fit_intercept=True))
+       ]
+
+ridge_pipeline = Pipeline(steps)
+ridge_pipeline.fit(X_train, y_train)
+
+print('Training Score  : {}'.format(ridge_pipeline.score(X_train, y_train)))
+print('Test Score      : {}'.format(ridge_pipeline.score(X_test, y_test)))
+
+================================================================================
+CELL 94 [code]
+================================================================================
+# Predictions for Ridge on the test data
+ridge_predictions = ridge_pipeline.predict(X_test)
+
+================================================================================
+CELL 95 [code]
+================================================================================
+# Evaluation
+ridge_mse  = mean_squared_error(y_test , ridge_predictions)
+ridge_rmse = math.sqrt(ridge_mse)
+ridge_r2   = r2_score(y_test, ridge_predictions)
+
+print('Ridge RMSE  \t         ----> {}'.format(ridge_rmse))
+print('Ridge R2 Score         ----> {}'.format(ridge_r2))
+
+================================================================================
+CELL 96 [markdown]
+================================================================================
+### 16.2. Lasso Regression or l1 Regularization
+
+By creating a polynomial model, we created additional features. The question we need to ask ourselves is which of our features are relevant to our model, and which are not.
+
+l1 regularization tries to answer this question by driving the values of certain coefficients down to 0. This eliminates the least important features in our model. We will create a pipeline similar to the one above, but using Lasso. You can play around with the value of alpha, which can range from 0.1 to 1.
+
+================================================================================
+CELL 97 [code]
+================================================================================
+steps = [
+            ('scaler', StandardScaler()),
+            ('poly', PolynomialFeatures(degree=2)),
+            ('model', Lasso(alpha=0.2, fit_intercept=True))
+        ]
+
+lasso_pipeline = Pipeline(steps)
+
+lasso_pipeline.fit(X_train, y_train)
+
+print('Training score  : {}'    .format(lasso_pipeline.score(X_train, y_train)))
+print('Test score      : {}'    .format(lasso_pipeline.score(X_test, y_test)))
+
+================================================================================
+CELL 98 [code]
+================================================================================
+# Predictions for Lasso on the testset
+lasso_predictions = lasso_pipeline.predict(X_test)
+
+================================================================================
+CELL 99 [code]
+================================================================================
+# Evaluation
+lasso_mse  = mean_squared_error(y_test , lasso_predictions)
+lasso_rmse = math.sqrt(lasso_mse)
+lasso_r2   = r2_score(y_test, lasso_predictions)
+
+print('Lasso RMSE  \t         ----> {}'.format(lasso_rmse))
+print('Lasso R2 Score         ----> {}'.format(lasso_r2))
+
+================================================================================
+CELL 100 [markdown]
+================================================================================
+Ridge and Lasso gives better results than LinearRegression.
+
+================================================================================
+CELL 101 [markdown]
+================================================================================
+## 17) RandomForest
+
+================================================================================
+CELL 102 [code]
+================================================================================
+rand_forest_model = RandomForestRegressor()
+rand_forest_model.fit(X_train, y_train)
+--- OUTPUT [text/html] ---
+<style>#sk-container-id-2 {color: black;background-color: white;}#sk-container-id-2 pre{padding: 0;}#sk-container-id-2 div.sk-toggleable {background-color: white;}#sk-container-id-2 label.sk-toggleable__label {cursor: pointer;display: block;width: 100%;margin-bottom: 0;padding: 0.3em;box-sizing: border-box;text-align: center;}#sk-container-id-2 label.sk-toggleable__label-arrow:before {content: "â–¸";float: left;margin-right: 0.25em;color: #696969;}#sk-container-id-2 label.sk-toggleable__label-arrow:hover:before {color: black;}#sk-container-id-2 div.sk-estimator:hover label.sk-toggleable__label-arrow:before {color: black;}#sk-container-id-2 div.sk-toggleable__content {max-height: 0;max-width: 0;overflow: hidden;text-align: left;background-color: #f0f8ff;}#sk-container-id-2 div.sk-toggleable__content pre {margin: 0.2em;color: black;border-radius: 0.25em;background-color: #f0f8ff;}#sk-container-id-2 input.sk-toggleable__control:checked~div.sk-toggleable__content {max-height: 200px;max-width: 100%;overflow: auto;}#sk-container-id-2 input.sk-toggleable__control:checked~label.sk-toggleable__label-arrow:before {content: "â–¾";}#sk-container-id-2 div.sk-estimator input.sk-toggleable__control:checked~label.sk-toggleable__label {background-color: #d4ebff;}#sk-container-id-2 div.sk-label input.sk-toggleable__control:checked~label.sk-toggleable__label {background-color: #d4ebff;}#sk-container-id-2 input.sk-hidden--visually {border: 0;clip: rect(1px 1px 1px 1px);clip: rect(1px, 1px, 1px, 1px);height: 1px;margin: -1px;overflow: hidden;padding: 0;position: absolute;width: 1px;}#sk-container-id-2 div.sk-estimator {font-family: monospace;background-color: #f0f8ff;border: 1px dotted black;border-radius: 0.25em;box-sizing: border-box;margin-bottom: 0.5em;}#sk-container-id-2 div.sk-estimator:hover {background-color: #d4ebff;}#sk-container-id-2 div.sk-parallel-item::after {content: "";width: 100%;border-bottom: 1px solid gray;flex-grow: 1;}#sk-container-id-2 div.sk-label:hover label.sk-toggleable__label {background-color: #d4ebff;}#sk-container-id-2 div.sk-serial::before {content: "";position: absolute;border-left: 1px solid gray;box-sizing: border-box;top: 0;bottom: 0;left: 50%;z-index: 0;}#sk-container-id-2 div.sk-serial {display: flex;flex-direction: column;align-items: center;background-color: white;padding-right: 0.2em;padding-left: 0.2em;position: relative;}#sk-container-id-2 div.sk-item {position: relative;z-index: 1;}#sk-container-id-2 div.sk-parallel {display: flex;align-items: stretch;justify-content: center;background-color: white;position: relative;}#sk-container-id-2 div.sk-item::before, #sk-container-id-2 div.sk-parallel-item::before {content: "";position: absolute;border-left: 1px solid gray;box-sizing: border-box;top: 0;bottom: 0;left: 50%;z-index: -1;}#sk-container-id-2 div.sk-parallel-item {display: flex;flex-direction: column;z-index: 1;position: relative;background-color: white;}#sk-container-id-2 div.sk-parallel-item:first-child::after {align-self: flex-end;width: 50%;}#sk-container-id-2 div.sk-parallel-item:last-child::after {align-self: flex-start;width: 50%;}#sk-container-id-2 div.sk-parallel-item:only-child::after {width: 0;}#sk-container-id-2 div.sk-dashed-wrapped {border: 1px dashed gray;margin: 0 0.4em 0.5em 0.4em;box-sizing: border-box;padding-bottom: 0.4em;background-color: white;}#sk-container-id-2 div.sk-label label {font-family: monospace;font-weight: bold;display: inline-block;line-height: 1.2em;}#sk-container-id-2 div.sk-label-container {text-align: center;}#sk-container-id-2 div.sk-container {/* jupyter's `normalize.less` sets `[hidden] { display: none; }` but bootstrap.min.css set `[hidden] { display: none !important; }` so we also need the `!important` here to be able to override the default hidden behavior on the sphinx rendered scikit-learn.org. See: https://github.com/scikit-learn/scikit-learn/issues/21755 */display: inline-block !important;position: relative;}#sk-container-id-2 div.sk-text-repr-fallback {display: none;}</style><div id="sk-container-id-2" class="sk-top-container"><div class="sk-text-repr-fallback"><pre>RandomForestRegressor()</pre><b>In a Jupyter environment, please rerun this cell to show the HTML representation or trust the notebook. <br />On GitHub, the HTML representation is unable to render, please try loading this page with nbviewer.org.</b></div><div class="sk-container" hidden><div class="sk-item"><div class="sk-estimator sk-toggleable"><input class="sk-toggleable__control sk-hidden--visually" id="sk-estimator-id-2" type="checkbox" checked><label for="sk-estimator-id-2" class="sk-toggleable__label sk-toggleable__label-arrow">RandomForestRegressor</label><div class="sk-toggleable__content"><pre>RandomForestRegressor()</pre></div></div></div></div></div>
+--- OUTPUT [text/plain] ---
+RandomForestRegressor()
+
+================================================================================
+CELL 103 [code]
+================================================================================
+# Predictions for XGBoost on the test data
+rand_forest_predictions = rand_forest_model.predict(X_test)
+
+================================================================================
+CELL 104 [code]
+================================================================================
+print('Training score  : {}'.format(rand_forest_model.score(X_train, y_train)))
+print('Test score      : {}'.format(rand_forest_model.score(X_test, y_test)))
+
+================================================================================
+CELL 105 [code]
+================================================================================
+# Evaluation
+rand_forest_mse = mean_squared_error(y_test , rand_forest_predictions)
+rand_forest_rmse = math.sqrt(rand_forest_mse)
+rand_forest_r2 = r2_score(y_test, rand_forest_predictions)
+
+print('RandomForest RMSE  \t       ----> {}'.format(rand_forest_rmse))
+print('RandomForest R2 Score       ----> {}'.format(rand_forest_r2))
+
+================================================================================
+CELL 106 [markdown]
+================================================================================
+The gap between the training score and the test score is huge so RandomForest is overfitting the data. We can handle this issue with hyperparameter tuning.
+
+================================================================================
+CELL 107 [markdown]
+================================================================================
+## 18. XGBoost
+
+================================================================================
+CELL 108 [code]
+================================================================================
+xgb_model = XGBRegressor()
+xgb_model.fit(X_train, y_train)
+--- OUTPUT [text/html] ---
+<style>#sk-container-id-3 {color: black;background-color: white;}#sk-container-id-3 pre{padding: 0;}#sk-container-id-3 div.sk-toggleable {background-color: white;}#sk-container-id-3 label.sk-toggleable__label {cursor: pointer;display: block;width: 100%;margin-bottom: 0;padding: 0.3em;box-sizing: border-box;text-align: center;}#sk-container-id-3 label.sk-toggleable__label-arrow:before {content: "â–¸";float: left;margin-right: 0.25em;color: #696969;}#sk-container-id-3 label.sk-toggleable__label-arrow:hover:before {color: black;}#sk-container-id-3 div.sk-estimator:hover label.sk-toggleable__label-arrow:before {color: black;}#sk-container-id-3 div.sk-toggleable__content {max-height: 0;max-width: 0;overflow: hidden;text-align: left;background-color: #f0f8ff;}#sk-container-id-3 div.sk-toggleable__content pre {margin: 0.2em;color: black;border-radius: 0.25em;background-color: #f0f8ff;}#sk-container-id-3 input.sk-toggleable__control:checked~div.sk-toggleable__content {max-height: 200px;max-width: 100%;overflow: auto;}#sk-container-id-3 input.sk-toggleable__control:checked~label.sk-toggleable__label-arrow:before {content: "â–¾";}#sk-container-id-3 div.sk-estimator input.sk-toggleable__control:checked~label.sk-toggleable__label {background-color: #d4ebff;}#sk-container-id-3 div.sk-label input.sk-toggleable__control:checked~label.sk-toggleable__label {background-color: #d4ebff;}#sk-container-id-3 input.sk-hidden--visually {border: 0;clip: rect(1px 1px 1px 1px);clip: rect(1px, 1px, 1px, 1px);height: 1px;margin: -1px;overflow: hidden;padding: 0;position: absolute;width: 1px;}#sk-container-id-3 div.sk-estimator {font-family: monospace;background-color: #f0f8ff;border: 1px dotted black;border-radius: 0.25em;box-sizing: border-box;margin-bottom: 0.5em;}#sk-container-id-3 div.sk-estimator:hover {background-color: #d4ebff;}#sk-container-id-3 div.sk-parallel-item::after {content: "";width: 100%;border-bottom: 1px solid gray;flex-grow: 1;}#sk-container-id-3 div.sk-label:hover label.sk-toggleable__label {background-color: #d4ebff;}#sk-container-id-3 div.sk-serial::before {content: "";position: absolute;border-left: 1px solid gray;box-sizing: border-box;top: 0;bottom: 0;left: 50%;z-index: 0;}#sk-container-id-3 div.sk-serial {display: flex;flex-direction: column;align-items: center;background-color: white;padding-right: 0.2em;padding-left: 0.2em;position: relative;}#sk-container-id-3 div.sk-item {position: relative;z-index: 1;}#sk-container-id-3 div.sk-parallel {display: flex;align-items: stretch;justify-content: center;background-color: white;position: relative;}#sk-container-id-3 div.sk-item::before, #sk-container-id-3 div.sk-parallel-item::before {content: "";position: absolute;border-left: 1px solid gray;box-sizing: border-box;top: 0;bottom: 0;left: 50%;z-index: -1;}#sk-container-id-3 div.sk-parallel-item {display: flex;flex-direction: column;z-index: 1;position: relative;background-color: white;}#sk-container-id-3 div.sk-parallel-item:first-child::after {align-self: flex-end;width: 50%;}#sk-container-id-3 div.sk-parallel-item:last-child::after {align-self: flex-start;width: 50%;}#sk-container-id-3 div.sk-parallel-item:only-child::after {width: 0;}#sk-container-id-3 div.sk-dashed-wrapped {border: 1px dashed gray;margin: 0 0.4em 0.5em 0.4em;box-sizing: border-box;padding-bottom: 0.4em;background-color: white;}#sk-container-id-3 div.sk-label label {font-family: monospace;font-weight: bold;display: inline-block;line-height: 1.2em;}#sk-container-id-3 div.sk-label-container {text-align: center;}#sk-container-id-3 div.sk-container {/* jupyter's `normalize.less` sets `[hidden] { display: none; }` but bootstrap.min.css set `[hidden] { display: none !important; }` so we also need the `!important` here to be able to override the default hidden behavior on the sphinx rendered scikit-learn.org. See: https://github.com/scikit-learn/scikit-learn/issues/21755 */display: inline-block !important;position: relative;}#sk-container-id-3 div.sk-text-repr-fallback {display: none;}</style><div id="sk-container-id-3" class="sk-top-container"><div class="sk-text-repr-fallback"><pre>XGBRegressor(base_score=None, booster=None, callbacks=None,
+             colsample_bylevel=None, colsample_bynode=None,
+             colsample_bytree=None, early_stopping_rounds=None,
+             enable_categorical=False, eval_metric=None, feature_types=None,
+             gamma=None, gpu_id=None, grow_policy=None, importance_type=None,
+             interaction_constraints=None, learning_rate=None, max_bin=None,
+             max_cat_threshold=None, max_cat_to_onehot=None,
+             max_delta_step=None, max_depth=None, max_leaves=None,
+             min_child_weight=None, missing=nan, monotone_constraints=None,
+             n_estimators=100, n_jobs=None, num_parallel_tree=None,
+             predictor=None, random_state=None, ...)</pre><b>In a Jupyter environment, please rerun this cell to show the HTML representation or trust the notebook. <br />On GitHub, the HTML representation is unable to render, please try loading this page with nbviewer.org.</b></div><div class="sk-container" hidden><div class="sk-item"><div class="sk-estimator sk-toggleable"><input class="sk-toggleable__control sk-hidden--visually" id="sk-estimator-id-3" type="checkbox" checked><label for="sk-estimator-id-3" class="sk-toggleable__label sk-toggleable__label-arrow">XGBRegressor</label><div class="sk-toggleable__content"><pre>XGBRegressor(base_score=None, booster=None, callbacks=None,
+             colsample_bylevel=None, colsample_bynode=None,
+             colsample_bytree=None, early_stopping_rounds=None,
+             enable_categorical=False, eval_metric=None, feature_types=None,
+             gamma=None, gpu_id=None, grow_policy=None, importance_type=None,
+             interaction_constraints=None, learning_rate=None, max_bin=None,
+             max_cat_threshold=None, max_cat_to_onehot=None,
+             max_delta_step=None, max_depth=None, max_leaves=None,
+             min_child_weight=None, missing=nan, monotone_constraints=None,
+             n_estimators=100, n_jobs=None, num_parallel_tree=None,
+             predictor=None, random_state=None, ...)</pre></div></div></div></div></div>
+--- OUTPUT [text/plain] ---
+XGBRegressor(base_score=None, booster=None, callbacks=None,
+             colsample_bylevel=None, colsample_bynode=None,
+             colsample_bytree=None, early_stopping_rounds=None,
+             enable_categorical=False, eval_metric=None, feature_types=None,
+             gamma=None, gpu_id=None, grow_policy=None, importance_type=None,
+             interaction_constraints=None, learning_rate=None, max_bin=None,
+             max_cat_threshold=None, max_cat_to_onehot=None,
+             max_delta_step=None, max_depth=None, max_leaves=None,
+             min_child_weight=None, missing=nan, monotone_constraints=None,
+             n_estimators=100, n_jobs=None, num_parallel_tree=None,
+             predictor=None, random_state=None, ...)
+
+================================================================================
+CELL 109 [code]
+================================================================================
+# Predictions for XGBoost on the test data
+xgb_predictions = xgb_model.predict(X_test)
+
+================================================================================
+CELL 110 [code]
+================================================================================
+print('XGBoost Training score  : {}'.format(xgb_model.score(X_train, y_train)))
+print('XGBoost Test score      : {}'.format(xgb_model.score(X_test, y_test)))
+
+================================================================================
+CELL 111 [markdown]
+================================================================================
+XGBoost is also overfitting the data. We'll try after to tune the hyperparameters for XGBoost and see how the model performs.
+
+================================================================================
+CELL 112 [code]
+================================================================================
+# Evaluation
+xgb_mse = mean_squared_error(y_test , xgb_predictions)
+xgb_rmse = math.sqrt(xgb_mse)
+xgb_r2 = r2_score(y_test, xgb_predictions)
+
+print('XGBoost RMSE  \t   ----> {}'.format(xgb_rmse))
+print('XGBoost R2 Score   ----> {}'.format(xgb_r2))
+
+================================================================================
+CELL 113 [markdown]
+================================================================================
+# 19) Final Predictions On The Test Dataset
+
+================================================================================
+CELL 114 [code]
+================================================================================
+# Final predictions on test data using Lasso
+final_test_preds = lasso_pipeline.predict(test)
+
+================================================================================
+CELL 115 [markdown]
+================================================================================
+# 20) Saving The Final Model
+
+================================================================================
+CELL 116 [code]
+================================================================================
+# Saving model to pickle file
+with open("BigMart_Sales_Model.pkl", "wb") as file: # file is a variable for storing the newly created file.
+    pickle.dump(lasso_pipeline, file)              # Dump function is used to write the object into the created file in byte format.
+
